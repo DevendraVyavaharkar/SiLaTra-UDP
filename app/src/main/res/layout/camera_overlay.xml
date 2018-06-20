@@ -17,7 +17,7 @@
 
     <Button
         android:id="@+id/flashToggle"
-        android:text="Flash"
+        android:text="@string/flash"
         android:background="#ffc700"
         android:textColor="#000000"
         android:layout_margin="10sp"
@@ -29,7 +29,7 @@
 
     <Button
         android:id="@+id/button_capture"
-        android:text="Capture"
+        android:text="@string/capture"
         android:textSize="16sp"
         android:background="#0ba8ef"
         android:layout_width="match_parent"
