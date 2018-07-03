@@ -86,8 +86,9 @@ public class SettingsActivity extends AppCompatActivity {
             editor.putInt(Port,portNumber);
             editor.apply();
 
-            Intent i=new Intent (view.getContext(),MainActivity.class);
-            startActivity(i);
+//            Intent i=new Intent (view.getContext(),MainActivity.class);
+            finish();
+//            startActivity(i);
         }
     });
 
