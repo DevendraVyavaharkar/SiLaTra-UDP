@@ -1,18 +1,19 @@
 package team_silatra.camera;
 
-import android.Manifest;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.graphics.ImageFormat;
 import android.graphics.Rect;
 import android.graphics.YuvImage;
 import android.hardware.Camera;
 import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
-import android.os.Build;
 import android.os.Bundle;
 import android.os.NetworkOnMainThreadException;
+import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
@@ -24,16 +25,18 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.FrameLayout;
-import android.widget.ImageButton;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.view.ViewGroup.LayoutParams;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
-import java.net.DatagramPacket;
-import java.net.DatagramSocket;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.net.InetAddress;
+import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
@@ -57,11 +60,21 @@ public class CameraActivity extends AppCompatActivity{
     public static final String IP3 = "ip3Key";
     public static final String IP4 = "ip4Key";
     public static final String Port = "portKey";
+    InetAddress serverAddr;
+    int port;
+    Socket tcpSocket;
+
 
     public static String results;
 
     private boolean hasFlash;
     private boolean isFlashOn;
+    private boolean isTransmiting;
+
+    public TCPReceiveText tcpReceive;
+    public TCPSendPicture tcpSend;
+
+    TextView txt;
 
     @Override
     protected void onCreate(Bundle savedInstanceState){
@@ -75,7 +88,7 @@ public class CameraActivity extends AppCompatActivity{
 
         //LayoutInflater is used. The camera_overlay.xml layout is used over the Camera Preview layout
         LayoutInflater inflater = LayoutInflater.from(this);
-        View theInflatedView = inflater.inflate(R.layout.camera_overlay, null);
+        final View theInflatedView = inflater.inflate(R.layout.camera_overlay, null);
         LayoutParams layoutParamsControl = new LayoutParams(LayoutParams.FILL_PARENT,LayoutParams.FILL_PARENT);
         this.addContentView(theInflatedView, layoutParamsControl);
 
@@ -87,39 +100,69 @@ public class CameraActivity extends AppCompatActivity{
 
         // Create our Preview view and set it as the content of our activity.
         mPreview = new CameraPreview(this, mCamera);
-        FrameLayout preview = (FrameLayout) findViewById(R.id.camera_preview);
+        FrameLayout preview = findViewById(R.id.camera_preview);
         preview.addView(mPreview);
 
+        txt = findViewById(R.id.textview_output);
+
+        isTransmiting = false;
+
+        sharedpreferences = getSharedPreferences(MyPREFERENCES, Context.MODE_PRIVATE);   //Shared Preferences
+        try {
+            serverAddr = InetAddress.getByName(sharedpreferences.getString(IP1,null)+"."+
+                    sharedpreferences.getString(IP2,null)+"."+
+                    sharedpreferences.getString(IP3,null)+"."+
+                    sharedpreferences.getString(IP4,null));
+            port = sharedpreferences.getInt(Port,0);
+//            tcpSocket = new Socket(serverAddr,port);
+        } catch (UnknownHostException e) {
+            Log.e("SilatraException","Message:"+e.toString());
+        } catch (IOException e) {
+            Log.e("SilatraException","Message:"+e.toString());
+        }
+
+
         // Add a listener to the Capture button
-        Button captureButton = (Button) theInflatedView.findViewById(R.id.button_capture);
+        final Button captureButton = theInflatedView.findViewById(R.id.button_capture);
         captureButton.setOnClickListener(
             new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
-                    // get an image from the camera
-                    //mCamera.takePicture(null, null, mPicture);
-                    //new UDPSendPicture().execute();
-                    //new UDPReceiveText().execute();
+                    if(!isTransmiting) {
+                        tcpSend = new TCPSendPicture();
+                        tcpSend.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
 
-                        new UDPReceiveText().execute();
-                        new UDPSendPicture().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+                        isTransmiting=true;
+                        captureButton.setBackgroundColor(Color.RED);
+                        captureButton.setText("Stop");
+
+                    } else{
+                        new CloseConnectionAsync().execute();
+                        tcpReceive.cancel(true);
+                        tcpSend.cancel(true);
+                        isTransmiting=false;
+                        captureButton.setBackgroundColor(Color.parseColor("#0ba8ef"));
+                        captureButton.setText("Capture");
+                    }
                 }
             }
         );
 
         // Flash Toggle Button
-        Button toggleFlash = theInflatedView.findViewById(R.id.flashToggle);
+        final FloatingActionButton toggleFlash = theInflatedView.findViewById(R.id.flashToggle);
         toggleFlash.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View view) {
                 if(!hasFlash){
-                    Toast.makeText(getApplicationContext(),"Your device doesn't have Flashlight!",Toast.LENGTH_LONG).show();
+                    Toast.makeText(getApplicationContext(),"Your device doesn't have Flashlight!",
+                            Toast.LENGTH_LONG).show();
                 }
                 else if(isFlashOn){
                     Camera.Parameters params = mCamera.getParameters();
                     params.setFlashMode(Camera.Parameters.FLASH_MODE_OFF);
                     mCamera.setParameters(params);
                     mCamera.startPreview();
+                    toggleFlash.setBackgroundTintList(ColorStateList.valueOf(0x9aeeeeee));
                     isFlashOn = false;
                 }
                 else{
@@ -127,6 +170,7 @@ public class CameraActivity extends AppCompatActivity{
                     params.setFlashMode(Camera.Parameters.FLASH_MODE_TORCH);
                     mCamera.setParameters(params);
                     mCamera.startPreview();
+                    toggleFlash.setBackgroundTintList(ColorStateList.valueOf(0x9a4aff41));
                     isFlashOn = true;
                 }
             }
@@ -136,6 +180,9 @@ public class CameraActivity extends AppCompatActivity{
     @Override
     protected void onStop() {
         super.onStop();
+        new CloseConnectionAsync().execute();
+        tcpReceive.cancel(true);
+        tcpSend.cancel(true);
         //mCamera.release();
     }
 
@@ -151,7 +198,7 @@ public class CameraActivity extends AppCompatActivity{
             mCamera = getCameraInstance();
             // Create our Preview view and set it as the content of our activity.
             mPreview = new CameraPreview(this, mCamera);
-            FrameLayout preview = (FrameLayout) findViewById(R.id.camera_preview);
+            FrameLayout preview = findViewById(R.id.camera_preview);
             preview.addView(mPreview);
 
             //LayoutInflater is used. The camera_overlay.xml layout is used over the Camera Preview layout
@@ -166,8 +213,8 @@ public class CameraActivity extends AppCompatActivity{
                     new View.OnClickListener() {
                         @Override
                         public void onClick(View v) {
-                            new UDPReceiveText().execute();
-                            new UDPSendPicture().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+                            new TCPReceiveText().execute();
+                            new TCPSendPicture().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
                         }
                     }
             );
@@ -202,7 +249,10 @@ public class CameraActivity extends AppCompatActivity{
     @Override
     protected void onPause(){
         super.onPause();
-
+        if(tcpSend!=null && !tcpSend.isCancelled())
+            tcpSend.cancel(true);
+        if(tcpReceive!=null && !tcpReceive.isCancelled())
+            tcpReceive.cancel(true);
         if(mCamera!=null) {
             mCamera.stopPreview();
             mCamera.setPreviewCallback(null);
@@ -239,39 +289,56 @@ public class CameraActivity extends AppCompatActivity{
         return c; // returns null if camera is unavailable
     }
 
-    private class UDPSendPicture extends AsyncTask<Void,Void,Void>{
+    private class TCPSendPicture extends AsyncTask<Void,Void,Void>{
 
-        private DatagramSocket udpSocket;
-        private InetAddress serverAddr;
-        private int port;
+        DataOutputStream tcpOutput;
+
+        int imgCtr = 0;
+        int customFrameRate = 5;
+        int frameNoThresh = 30 / customFrameRate;
+//        Socket tcpSocket;
+//        InetAddress serverAddr;
+//        int port;
+
         @Override
         public Void doInBackground(Void ...params){
-            byte[] buffer = new byte[65507]; //Buffer
 
-            sharedpreferences = getSharedPreferences(MyPREFERENCES, Context.MODE_PRIVATE);   //Shared Preferences
-
+//            sharedpreferences = getSharedPreferences(MyPREFERENCES, Context.MODE_PRIVATE);   //Shared Preferences
             try {
-                udpSocket = new DatagramSocket();
-                serverAddr = InetAddress.getByName(sharedpreferences.getString(IP1,null)+"."+
-                        sharedpreferences.getString(IP2,null)+"."+
-                        sharedpreferences.getString(IP3,null)+"."+
-                        sharedpreferences.getString(IP4,null));
-                port = sharedpreferences.getInt(Port,0);
+//                serverAddr = InetAddress.getByName(sharedpreferences.getString(IP1,null)+"."+
+//                        sharedpreferences.getString(IP2,null)+"."+
+//                        sharedpreferences.getString(IP3,null)+"."+
+//                        sharedpreferences.getString(IP4,null));
+//                port = sharedpreferences.getInt(Port,0);
+                tcpSocket = new Socket(serverAddr,port);
+                tcpOutput = new DataOutputStream(tcpSocket.getOutputStream());
             }catch (UnknownHostException e){
-                Log.e("Wrong IP:", "Error:", e);
+                Log.e("SilatraWrong IP:", "Error:", e);
             }catch(SocketException e) {
-                Log.e("Socket Open:", "Error:", e);
+                Log.e("SilatraSocket Open:", "Error:", e);
+            }catch(IOException e){
+                Log.e("SilatraIOException", "Error:", e);
             }
 
-
+            tcpReceive = new TCPReceiveText();
+//            tcpReceive.execute();
+            tcpReceive.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
             mCamera.setPreviewCallback(new Camera.PreviewCallback() {
                 int width,height;
                 byte[] imageBytes;
 
                 @Override
                 public void onPreviewFrame(byte[] imgBytes, Camera camera) {
-                    DatagramPacket packet;
+                    if(isCancelled())
+                        return;
+
                     try{
+                        //Capturing the frame once every five times
+                        imgCtr = (imgCtr + 1)%(frameNoThresh);
+                        if((imgCtr) != 0){
+                            return;
+                        }
+
                         Camera.Parameters parameters = camera.getParameters();
                         width = parameters.getPreviewSize().width;
                         height = parameters.getPreviewSize().height;
@@ -279,72 +346,81 @@ public class CameraActivity extends AppCompatActivity{
                         YuvImage yuvImage = new YuvImage(imgBytes, ImageFormat.NV21, width, height, null);
                         yuvImage.compressToJpeg(new Rect(0, 0, width, height), 80, out);
                         imageBytes = out.toByteArray();
-                        Log.d("Size of byte array",""+imageBytes.length);
+                        Log.d("SilatraSize of byte arr",""+imageBytes.length);
 
-                        packet = new DatagramPacket(imageBytes, imageBytes.length, serverAddr, port);
-                        Log.e("Size of packet",""+packet.getLength());
-                        udpSocket.send(packet);
-                        Log.d("Transmission", "Message Sent successfully");
-                    }catch (NetworkOnMainThreadException e){
-                        Toast.makeText(CameraActivity.this, "NetworkOnMainThreadException", Toast.LENGTH_SHORT).show();
-                    }
-                    catch (Exception e){
+                        tcpOutput.writeInt(imageBytes.length); //Send image size
+                        Log.d("SilatraSize of Image",""+imageBytes.length);
+                        tcpOutput.write(imageBytes,0,imageBytes.length); //Send image
+                        tcpOutput.flush();
+                        Log.d("SilatraTransmission", "Message Sent successfully");
+                        Thread.sleep(100);
+                    } catch (NetworkOnMainThreadException |IOException | InterruptedException e){
+                        //Toast.makeText(CameraActivity.this, "NetworkOnMainThreadException", Toast.LENGTH_SHORT).show();
                         e.printStackTrace();
                     }
                 }
             });
             return null;
         }
+
+
+
+        @Override
+        protected void onPostExecute(Void aVoid) {
+            Log.d("SilatraOPE","OnPostExecuted");
+        }
     }
 
-    private class UDPReceiveText extends AsyncTask<Void,String,Void>{
+    private class TCPReceiveText extends AsyncTask<Void,String,Void>{
 
         String results;
 
-        private DatagramSocket udpSocket;
-        private DatagramPacket udpPacket;
-        //private InetAddress serverAddr;
-        private int port;
+        InputStream in;
+        BufferedReader br;
+
+//        Socket tcpSocket;
+//        InetAddress serverAddr;
+//        int port;
 
         @Override
         protected Void doInBackground(Void ...params){
             byte[] buffer = new byte[100]; //Buffer
-            sharedpreferences = getSharedPreferences(MyPREFERENCES, Context.MODE_PRIVATE);   //Shared Preferences
-
+//            sharedpreferences = getSharedPreferences(MyPREFERENCES, Context.MODE_PRIVATE);   //Shared Preferences
             try{
-                /*serverAddr = InetAddress.getByName(sharedpreferences.getString(IP1,null)+"."+
-                        sharedpreferences.getString(IP2,null)+"."+
-                        sharedpreferences.getString(IP3,null)+"."+
-                        sharedpreferences.getString(IP4,null));*/
-                //port = sharedpreferences.getInt(Port,0);
-                port = 49160;
-                udpSocket = new DatagramSocket(port);
-                udpSocket.setBroadcast(true);
-                udpPacket = new DatagramPacket(buffer,buffer.length);
+//                serverAddr = InetAddress.getByName(sharedpreferences.getString(IP1,null)+"."+
+//                        sharedpreferences.getString(IP2,null)+"."+
+//                        sharedpreferences.getString(IP3,null)+"."+
+//                        sharedpreferences.getString(IP4,null));
+//                port = sharedpreferences.getInt(Port,0);
+//                tcpSocket = new Socket(serverAddr,port);
+                in = tcpSocket.getInputStream();
+                br = new BufferedReader(new InputStreamReader(in));
+                Log.d("SilatraTCP Input","Connected to Socket's input stream");
 
                 while(true)
                 {
+                    if(isCancelled())
+                        break;
                     try
                     {
-                        udpSocket.receive(udpPacket);
-                        byte[] result=udpPacket.getData();
-                        String strResult = (new String(result, StandardCharsets.UTF_8)).trim();
-                        Log.d("Udp tutorial","Length of message received:" + strResult.length());
-                        Log.d("Udp tutorial","message received:" + strResult);
-                        publishProgress(strResult);
+                        Log.d("SilatraReceiver","Waiting to get input");
+                        results=br.readLine();
+                        Log.d("SilatraMessage Received",""+results);
+                        if(results!= null){
+                            Log.d("SilatraTCP Message Rec","message received:" + results);
+                            publishProgress(results);
+                         }
+                         else{
+                            Log.d("SilatraTCP Message Rec","Empty message received");
+                            publishProgress("No Sign Detected");
+                        }
                     }
                     catch (SocketException e) {
                         Log.e("Socket Open:", "Error:", e);
                     }
                 }
-            }/*catch (UnknownHostException e){
-                Log.e("Wrong IP:", "Error:", e);
-            }catch (SocketException e){
-                Log.e("Socket Open:", "Error:", e);
-            }*/catch (IOException e){
+            }catch (IOException e){
                 e.printStackTrace();
-            }finally {
-                udpSocket.close();
             }
             return null;
         }
@@ -352,12 +428,27 @@ public class CameraActivity extends AppCompatActivity{
         @Override
         protected void onProgressUpdate(String... values) {
             super.onProgressUpdate(values);
-            LayoutInflater inflater = LayoutInflater.from(getApplicationContext());
-            View theInflatedView = inflater.inflate(R.layout.camera_overlay, null);
-            TextView txt = (TextView)theInflatedView.findViewById(R.id.textview_output);
+
+            Log.d("Silatra",values[0]);
             txt.setText(values[0]+"");
         }
+
     }
+
+    private class CloseConnectionAsync extends AsyncTask<Void,String,Void>{
+
+        @Override
+        protected Void doInBackground(Void ...params){
+            try{
+                new DataOutputStream(tcpSocket.getOutputStream()).writeInt(0);
+                Log.d("Silatra","Sent quit indication");
+            }catch (IOException e){
+                e.printStackTrace();
+            }
+            return null;
+        }
+    }
+
 }
 
 /** A basic Camera preview class */
