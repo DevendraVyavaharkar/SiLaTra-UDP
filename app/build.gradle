@@ -4,10 +4,10 @@ android {
     compileSdkVersion 26
     defaultConfig {
         applicationId "team_silatra.camera"
-        minSdkVersion 21
-        targetSdkVersion 26
+        minSdkVersion 19
+        targetSdkVersion 28
         versionCode 1
-        versionName "2.0"
+        versionName '3.0'
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
     buildTypes {
@@ -16,10 +16,12 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    productFlavors {
+    }
 }
 
 dependencies {
-    implementation fileTree(dir: 'libs', include: ['*.jar'])
+    implementation fileTree(include: ['*.jar'], dir: 'libs')
     implementation 'com.android.support:appcompat-v7:26.1.0'
     implementation 'com.android.support:support-v4:26.1.0'
     implementation 'com.android.support:design:26.1.0'
@@ -27,4 +29,6 @@ dependencies {
     testImplementation 'junit:junit:4.12'
     androidTestImplementation 'com.android.support.test:runner:1.0.2'
     androidTestImplementation 'com.android.support.test.espresso:espresso-core:3.0.2'
+    implementation 'com.mcxiaoke.volley:library:1.0.19'
+    implementation 'pl.droidsonroids.gif:android-gif-drawable:1.2.+'
 }

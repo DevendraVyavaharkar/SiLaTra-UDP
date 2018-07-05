@@ -7,6 +7,7 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
+import android.net.wifi.WifiManager;
 import android.os.Bundle;
 import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
@@ -54,6 +55,15 @@ public class MainActivity extends AppCompatActivity
                 startActivity(i);
         }
         });
+
+
+        //Reference: https://stackoverflow.com/a/6593908/5370202
+        WifiManager wifi = (WifiManager)getApplicationContext().getSystemService(Context.WIFI_SERVICE);
+        if (!wifi.isWifiEnabled()){
+            Toast.makeText(getApplicationContext(),"Please switch on Wi-Fi before proceeding to use the app",Toast.LENGTH_SHORT).show();
+        }
+
+
 
         DrawerLayout drawer = (DrawerLayout) findViewById(R.id.drawer_layout);
         ActionBarDrawerToggle toggle = new ActionBarDrawerToggle(

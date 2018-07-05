@@ -16,6 +16,7 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_marginBottom="20dp"
+        android:selectAllOnFocus="true"
         android:inputType="textVisiblePassword"/>
 
     <android.support.v7.widget.AppCompatTextView
@@ -38,6 +39,7 @@
             android:layout_marginBottom="20dp"
             android:ems="3"
             android:inputType="number"
+            android:selectAllOnFocus="true"
             android:digits="0123456789" />
 
         <android.support.v7.widget.AppCompatTextView
@@ -52,6 +54,7 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="20dp"
             android:ems="3"
+            android:selectAllOnFocus="true"
             android:inputType="number"
             android:digits="0123456789" />
 
@@ -67,6 +70,7 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="20dp"
             android:ems="3"
+            android:selectAllOnFocus="true"
             android:inputType="number"
             android:digits="0123456789" />
 
@@ -82,6 +86,7 @@
             android:layout_height="wrap_content"
             android:layout_marginBottom="20dp"
             android:ems="3"
+            android:selectAllOnFocus="true"
             android:inputType="number"
             android:digits="0123456789" />
 
@@ -99,6 +104,7 @@
         android:layout_height="wrap_content"
         android:layout_marginBottom="20dp"
         android:inputType="number"
+        android:selectAllOnFocus="true"
         android:digits="0123456789"/>
 
     <android.support.v7.widget.AppCompatButton
