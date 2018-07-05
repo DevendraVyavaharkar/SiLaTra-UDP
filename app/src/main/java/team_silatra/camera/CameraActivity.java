@@ -64,6 +64,8 @@ public class CameraActivity extends AppCompatActivity{
 
     private Camera mCamera;
     private CameraPreview mPreview;
+    Button captureButton;
+    TextView txt;
 
     SharedPreferences sharedpreferences;
     public static final String MyPREFERENCES = "MyPrefs" ;
@@ -72,30 +74,28 @@ public class CameraActivity extends AppCompatActivity{
     public static final String IP3 = "ip3Key";
     public static final String IP4 = "ip4Key";
     public static final String Port = "portKey";
+
+
     InetAddress serverAddr;
     int port;
     Socket tcpSocket;
-
-    Button captureButton;
-
     String serverUrl;
 
-
-    public static String results;
 
     private boolean hasFlash;
     private boolean isFlashOn;
     private boolean isTransmiting;
 
+
     public TCPReceiveText tcpReceive;
     public TCPSendPicture tcpSend;
 
+
     RequestQueue queue;
     public String lastTxt = "";
-
-    TextView txt;
-
     TextToSpeech textToSpeech;
+
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState){
@@ -129,6 +129,7 @@ public class CameraActivity extends AppCompatActivity{
         isTransmiting = false;
 
 
+        //Initialize TTS
         textToSpeech=new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
             @Override
             public void onInit(int status) {
@@ -154,9 +155,10 @@ public class CameraActivity extends AppCompatActivity{
 
 
 
-        // Instantiate the RequestQueue.
+        // Instantiate the RequestQueue for http requests.
         queue = Volley.newRequestQueue(this);
         serverUrl ="http:/"+serverAddr+":5000/get-port-number/";  //serverAddr returns as '/192.168.2.5', hence, string has 'http:/'
+
 
 
         // Add a listener to the Capture button
@@ -170,6 +172,8 @@ public class CameraActivity extends AppCompatActivity{
                         findViewById(R.id.loaderGif).setVisibility(View.VISIBLE);
                         findViewById(R.id.loaderBg).setVisibility(View.VISIBLE);
                         Toast.makeText(getApplicationContext(),"Establishing connection with server...",Toast.LENGTH_SHORT).show();
+
+                        //This will fetch port no of new server socket created from python server
                         new establishServerConnection().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
 
                     } else{
@@ -184,6 +188,7 @@ public class CameraActivity extends AppCompatActivity{
                 }
             }
         );
+
 
         // Flash Toggle Button
         final FloatingActionButton toggleFlash = theInflatedView.findViewById(R.id.flashToggle);
@@ -342,9 +347,6 @@ public class CameraActivity extends AppCompatActivity{
         int imgCtr = 0;
         int customFrameRate = 5;
         int frameNoThresh = 30 / customFrameRate;
-//        Socket tcpSocket;
-//        InetAddress serverAddr;
-//        int port;
 
         @Override
         public Void doInBackground(Void ...params){
@@ -417,13 +419,8 @@ public class CameraActivity extends AppCompatActivity{
         InputStream in;
         BufferedReader br;
 
-//        Socket tcpSocket;
-//        InetAddress serverAddr;
-//        int port;
-
         @Override
         protected Void doInBackground(Void ...params){
-            byte[] buffer = new byte[100]; //Buffer
 
             try{
                 in = tcpSocket.getInputStream();
