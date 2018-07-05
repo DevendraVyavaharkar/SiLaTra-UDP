@@ -57,6 +57,7 @@ public class MainActivity extends AppCompatActivity
         });
 
 
+        //This just checks whether Wi-Fi is switched on or not and prompts if it isn't
         //Reference: https://stackoverflow.com/a/6593908/5370202
         WifiManager wifi = (WifiManager)getApplicationContext().getSystemService(Context.WIFI_SERVICE);
         if (!wifi.isWifiEnabled()){
