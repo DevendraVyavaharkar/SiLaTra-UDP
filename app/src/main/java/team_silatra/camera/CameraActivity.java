@@ -11,8 +11,10 @@ import android.graphics.YuvImage;
 import android.hardware.Camera;
 import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.NetworkOnMainThreadException;
+import android.speech.tts.TextToSpeech;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
@@ -29,6 +31,13 @@ import android.widget.TextView;
 import android.widget.Toast;
 import android.view.ViewGroup.LayoutParams;
 
+import com.android.volley.Request;
+import com.android.volley.RequestQueue;
+import com.android.volley.Response;
+import com.android.volley.VolleyError;
+import com.android.volley.toolbox.StringRequest;
+import com.android.volley.toolbox.Volley;
+
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
@@ -41,6 +50,9 @@ import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Locale;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import static android.content.ContentValues.TAG;
 
@@ -64,6 +76,10 @@ public class CameraActivity extends AppCompatActivity{
     int port;
     Socket tcpSocket;
 
+    Button captureButton;
+
+    String serverUrl;
+
 
     public static String results;
 
@@ -74,7 +90,12 @@ public class CameraActivity extends AppCompatActivity{
     public TCPReceiveText tcpReceive;
     public TCPSendPicture tcpSend;
 
+    RequestQueue queue;
+    public String lastTxt = "";
+
     TextView txt;
+
+    TextToSpeech textToSpeech;
 
     @Override
     protected void onCreate(Bundle savedInstanceState){
@@ -107,34 +128,49 @@ public class CameraActivity extends AppCompatActivity{
 
         isTransmiting = false;
 
+
+        textToSpeech=new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
+            @Override
+            public void onInit(int status) {
+                if(status != TextToSpeech.ERROR) {
+                    textToSpeech.setLanguage(Locale.US);
+                }
+            }
+        });
+
+
+        //Fetch stored preferences of IP address, port number
         sharedpreferences = getSharedPreferences(MyPREFERENCES, Context.MODE_PRIVATE);   //Shared Preferences
         try {
             serverAddr = InetAddress.getByName(sharedpreferences.getString(IP1,null)+"."+
                     sharedpreferences.getString(IP2,null)+"."+
                     sharedpreferences.getString(IP3,null)+"."+
                     sharedpreferences.getString(IP4,null));
-            port = sharedpreferences.getInt(Port,0);
-//            tcpSocket = new Socket(serverAddr,port);
+//            port = sharedpreferences.getInt(Port,0);
+
         } catch (UnknownHostException e) {
-            Log.e("SilatraException","Message:"+e.toString());
-        } catch (IOException e) {
             Log.e("SilatraException","Message:"+e.toString());
         }
 
 
+
+        // Instantiate the RequestQueue.
+        queue = Volley.newRequestQueue(this);
+        serverUrl ="http:/"+serverAddr+":5000/get-port-number/";  //serverAddr returns as '/192.168.2.5', hence, string has 'http:/'
+
+
         // Add a listener to the Capture button
-        final Button captureButton = theInflatedView.findViewById(R.id.button_capture);
+        captureButton = theInflatedView.findViewById(R.id.button_capture);
         captureButton.setOnClickListener(
             new View.OnClickListener() {
                 @Override
                 public void onClick(View v) {
+                    captureButton.setEnabled(false);
                     if(!isTransmiting) {
-                        tcpSend = new TCPSendPicture();
-                        tcpSend.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-
-                        isTransmiting=true;
-                        captureButton.setBackgroundColor(Color.RED);
-                        captureButton.setText("Stop");
+                        findViewById(R.id.loaderGif).setVisibility(View.VISIBLE);
+                        findViewById(R.id.loaderBg).setVisibility(View.VISIBLE);
+                        Toast.makeText(getApplicationContext(),"Establishing connection with server...",Toast.LENGTH_SHORT).show();
+                        new establishServerConnection().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
 
                     } else{
                         new CloseConnectionAsync().execute();
@@ -143,6 +179,7 @@ public class CameraActivity extends AppCompatActivity{
                         isTransmiting=false;
                         captureButton.setBackgroundColor(Color.parseColor("#0ba8ef"));
                         captureButton.setText("Capture");
+                        captureButton.setEnabled(true);
                     }
                 }
             }
@@ -180,86 +217,95 @@ public class CameraActivity extends AppCompatActivity{
     @Override
     protected void onStop() {
         super.onStop();
-        new CloseConnectionAsync().execute();
-        tcpReceive.cancel(true);
-        tcpSend.cancel(true);
+
+        if(textToSpeech !=null){
+            textToSpeech.stop();
+            textToSpeech.shutdown();
+        }
+
+        if(isTransmiting) {
+            new CloseConnectionAsync().execute();
+            tcpReceive.cancel(true);
+            tcpSend.cancel(true);
+        }
         //mCamera.release();
     }
 
-    @Override
-    protected void onResume(){
-        super.onResume();
-
-        if(mCamera ==null)
-        {
-            setContentView(R.layout.camera_activity);
-
-            // Create an instance of Camera
-            mCamera = getCameraInstance();
-            // Create our Preview view and set it as the content of our activity.
-            mPreview = new CameraPreview(this, mCamera);
-            FrameLayout preview = findViewById(R.id.camera_preview);
-            preview.addView(mPreview);
-
-            //LayoutInflater is used. The camera_overlay.xml layout is used over the Camera Preview layout
-            LayoutInflater inflater = LayoutInflater.from(this);
-            View theInflatedView = inflater.inflate(R.layout.camera_overlay, null);
-            LayoutParams layoutParamsControl = new LayoutParams(LayoutParams.FILL_PARENT,LayoutParams.FILL_PARENT);
-            this.addContentView(theInflatedView, layoutParamsControl);
-
-            // Add a listener to the Capture button
-            Button captureButton = (Button) theInflatedView.findViewById(R.id.button_capture);
-            captureButton.setOnClickListener(
-                    new View.OnClickListener() {
-                        @Override
-                        public void onClick(View v) {
-                            new TCPReceiveText().execute();
-                            new TCPSendPicture().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-                        }
-                    }
-            );
-
-            // Flash Toggle Button
-            Button toggleFlash = theInflatedView.findViewById(R.id.flashToggle);
-            toggleFlash.setOnClickListener(new View.OnClickListener() {
-                @Override
-                public void onClick(View view) {
-                    if(!hasFlash){
-                        Toast.makeText(getApplicationContext(),"Your device doesn't have Flashlight!",Toast.LENGTH_LONG).show();
-                    }
-                    else if(isFlashOn){
-                        Camera.Parameters params = mCamera.getParameters();
-                        params.setFlashMode(Camera.Parameters.FLASH_MODE_OFF);
-                        mCamera.setParameters(params);
-                        mCamera.startPreview();
-                        isFlashOn = false;
-                    }
-                    else{
-                        Camera.Parameters params = mCamera.getParameters();
-                        params.setFlashMode(Camera.Parameters.FLASH_MODE_TORCH);
-                        mCamera.setParameters(params);
-                        mCamera.startPreview();
-                        isFlashOn = true;
-                    }
-                }
-            });
-        }
-    }
-
-    @Override
-    protected void onPause(){
-        super.onPause();
-        if(tcpSend!=null && !tcpSend.isCancelled())
-            tcpSend.cancel(true);
-        if(tcpReceive!=null && !tcpReceive.isCancelled())
-            tcpReceive.cancel(true);
-        if(mCamera!=null) {
-            mCamera.stopPreview();
-            mCamera.setPreviewCallback(null);
-            mCamera.release();
-            mCamera = null;
-        }
-    }
+//    @Override
+//    protected void onResume(){
+//        super.onResume();
+//
+//
+//        if(mCamera ==null)
+//        {
+//            setContentView(R.layout.camera_activity);
+//
+//            // Create an instance of Camera
+//            mCamera = getCameraInstance();
+//            // Create our Preview view and set it as the content of our activity.
+//            mPreview = new CameraPreview(this, mCamera);
+//            FrameLayout preview = findViewById(R.id.camera_preview);
+//            preview.addView(mPreview);
+//
+//            //LayoutInflater is used. The camera_overlay.xml layout is used over the Camera Preview layout
+//            LayoutInflater inflater = LayoutInflater.from(this);
+//            View theInflatedView = inflater.inflate(R.layout.camera_overlay, null);
+//            LayoutParams layoutParamsControl = new LayoutParams(LayoutParams.FILL_PARENT,LayoutParams.FILL_PARENT);
+//            this.addContentView(theInflatedView, layoutParamsControl);
+//
+//            // Add a listener to the Capture button
+//            Button captureButton = (Button) theInflatedView.findViewById(R.id.button_capture);
+//            captureButton.setOnClickListener(
+//                    new View.OnClickListener() {
+//                        @Override
+//                        public void onClick(View v) {
+//                            new TCPReceiveText().execute();
+//                            new TCPSendPicture().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+//                        }
+//                    }
+//            );
+//
+//            // Flash Toggle Button
+//            Button toggleFlash = theInflatedView.findViewById(R.id.flashToggle);
+//            toggleFlash.setOnClickListener(new View.OnClickListener() {
+//                @Override
+//                public void onClick(View view) {
+//                    if(!hasFlash){
+//                        Toast.makeText(getApplicationContext(),"Your device doesn't have Flashlight!",Toast.LENGTH_LONG).show();
+//                    }
+//                    else if(isFlashOn){
+//                        Camera.Parameters params = mCamera.getParameters();
+//                        params.setFlashMode(Camera.Parameters.FLASH_MODE_OFF);
+//                        mCamera.setParameters(params);
+//                        mCamera.startPreview();
+//                        isFlashOn = false;
+//                    }
+//                    else{
+//                        Camera.Parameters params = mCamera.getParameters();
+//                        params.setFlashMode(Camera.Parameters.FLASH_MODE_TORCH);
+//                        mCamera.setParameters(params);
+//                        mCamera.startPreview();
+//                        isFlashOn = true;
+//                    }
+//                }
+//            });
+//        }
+//    }
+//
+//    @Override
+//    protected void onPause(){
+//        super.onPause();
+//        if(tcpSend!=null && !tcpSend.isCancelled())
+//            tcpSend.cancel(true);
+//        if(tcpReceive!=null && !tcpReceive.isCancelled())
+//            tcpReceive.cancel(true);
+//        if(mCamera!=null) {
+//            mCamera.stopPreview();
+//            mCamera.setPreviewCallback(null);
+//            mCamera.release();
+//            mCamera = null;
+//        }
+//    }
 
     /** A safe way to get an instance of the Camera object. */
     public static Camera getCameraInstance(){
@@ -303,13 +349,7 @@ public class CameraActivity extends AppCompatActivity{
         @Override
         public Void doInBackground(Void ...params){
 
-//            sharedpreferences = getSharedPreferences(MyPREFERENCES, Context.MODE_PRIVATE);   //Shared Preferences
             try {
-//                serverAddr = InetAddress.getByName(sharedpreferences.getString(IP1,null)+"."+
-//                        sharedpreferences.getString(IP2,null)+"."+
-//                        sharedpreferences.getString(IP3,null)+"."+
-//                        sharedpreferences.getString(IP4,null));
-//                port = sharedpreferences.getInt(Port,0);
                 tcpSocket = new Socket(serverAddr,port);
                 tcpOutput = new DataOutputStream(tcpSocket.getOutputStream());
             }catch (UnknownHostException e){
@@ -321,7 +361,6 @@ public class CameraActivity extends AppCompatActivity{
             }
 
             tcpReceive = new TCPReceiveText();
-//            tcpReceive.execute();
             tcpReceive.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
             mCamera.setPreviewCallback(new Camera.PreviewCallback() {
                 int width,height;
@@ -385,14 +424,8 @@ public class CameraActivity extends AppCompatActivity{
         @Override
         protected Void doInBackground(Void ...params){
             byte[] buffer = new byte[100]; //Buffer
-//            sharedpreferences = getSharedPreferences(MyPREFERENCES, Context.MODE_PRIVATE);   //Shared Preferences
+
             try{
-//                serverAddr = InetAddress.getByName(sharedpreferences.getString(IP1,null)+"."+
-//                        sharedpreferences.getString(IP2,null)+"."+
-//                        sharedpreferences.getString(IP3,null)+"."+
-//                        sharedpreferences.getString(IP4,null));
-//                port = sharedpreferences.getInt(Port,0);
-//                tcpSocket = new Socket(serverAddr,port);
                 in = tcpSocket.getInputStream();
                 br = new BufferedReader(new InputStreamReader(in));
                 Log.d("SilatraTCP Input","Connected to Socket's input stream");
@@ -430,7 +463,12 @@ public class CameraActivity extends AppCompatActivity{
             super.onProgressUpdate(values);
 
             Log.d("Silatra",values[0]);
-            txt.setText(values[0]+"");
+            if(!lastTxt.equals(values[0]+"")){
+                txt.setText(values[0]+"");
+                if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP && (!(values[0]+"").equals("--") ) ){
+                    textToSpeech.speak(values[0] + "", TextToSpeech.QUEUE_FLUSH, null, null);
+                }
+            }
         }
 
     }
@@ -445,6 +483,68 @@ public class CameraActivity extends AppCompatActivity{
             }catch (IOException e){
                 e.printStackTrace();
             }
+            return null;
+        }
+    }
+
+    private class establishServerConnection extends AsyncTask<Void,String,Void>{
+        @Override
+        protected Void doInBackground(Void ...params){
+            // Request a string response from the provided URL.
+            final StringRequest stringRequest = new StringRequest(Request.Method.GET, serverUrl,
+                    new Response.Listener<String>() {
+                        @Override
+                        public void onResponse(String response) {
+                            Log.d("Silatra","Server response is: "+response);
+                            port = Integer.parseInt(response);
+
+                            //Reference: http://envyandroid.com/android-delayed-tasks/
+                            //This delay is added so as to compensate for the time required by the server to actually start the server socket
+                            new Timer().schedule(new TimerTask() {
+                                @Override
+                                public void run() {
+                                    runOnUiThread(new Runnable() {
+                                        @Override
+                                        public void run() {
+                                            tcpSend = new TCPSendPicture();
+                                            tcpSend.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+
+                                            //Change local properties to indicate start of transmission
+                                            isTransmiting=true;
+                                            captureButton.setBackgroundColor(Color.RED);
+                                            captureButton.setText("Stop");
+
+                                            findViewById(R.id.loaderGif).setVisibility(View.GONE);
+                                            findViewById(R.id.loaderBg).setVisibility(View.GONE);
+                                            captureButton.setEnabled(true);
+
+                                            Toast.makeText(getApplicationContext(),"Connection established with server",Toast.LENGTH_LONG).show();
+
+                                        }
+                                    });
+
+                                }
+                            },5000);
+                        }
+                    }, new Response.ErrorListener() {
+                @Override
+                public void onErrorResponse(final VolleyError error) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            findViewById(R.id.loaderGif).setVisibility(View.GONE);
+                            findViewById(R.id.loaderBg).setVisibility(View.GONE);
+                            captureButton.setEnabled(true);
+                            Log.d("Silatra",error.networkResponse+"");
+
+                            Toast.makeText(getApplicationContext(),"Unreachable Server!",Toast.LENGTH_LONG).show();
+                        }
+                    });
+
+                }
+            });
+            // Add the request to the RequestQueue.
+            queue.add(stringRequest);
             return null;
         }
     }

@@ -41,4 +41,21 @@
         android:paddingStart="20sp"
         android:paddingEnd="20sp"/>
 
+    <pl.droidsonroids.gif.GifTextView
+        android:id="@+id/loaderGif"
+        android:layout_width="70dp"
+        android:layout_height="70dp"
+        android:layout_centerInParent="true"
+        android:background="@drawable/silatra_logo"
+        android:visibility="gone"
+        android:translationZ="101dp"/>
+    <View
+        android:id="@+id/loaderBg"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#8e000000"
+        android:visibility="gone"
+        android:translationZ="2dp"
+        />
+
 </RelativeLayout>
