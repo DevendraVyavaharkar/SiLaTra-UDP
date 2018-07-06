@@ -20,7 +20,6 @@ public class SettingsActivity extends AppCompatActivity {
     EditText edt;
 
     public static final String MyPREFERENCES = "MyPrefs" ;
-    public static final String Username = "usernameKey";
     public static final String IP1 = "ip1Key";
     public static final String IP2 = "ip2Key";
     public static final String IP3 = "ip3Key";
@@ -34,10 +33,6 @@ public class SettingsActivity extends AppCompatActivity {
 
         sharedpreferences = getSharedPreferences(MyPREFERENCES, Context.MODE_PRIVATE);   //Shared Preferences
 
-        if(sharedpreferences.contains(Username)){           // UserName
-            edt=(EditText)findViewById(R.id.usernameEditText);
-            edt.setText(sharedpreferences.getString(Username,null));
-        }
 
         if(sharedpreferences.contains(IP1)){           // IP Address block 1
             edt=(EditText)findViewById(R.id.serverEditText1);
@@ -69,7 +64,6 @@ public class SettingsActivity extends AppCompatActivity {
         @Override
         public void onClick(View view) {
 
-            String user = ((EditText) findViewById(R.id.usernameEditText)).getText().toString();
             String ipAddr1 = appendZero(((EditText) findViewById(R.id.serverEditText1)).getText().toString());
             String ipAddr2 = appendZero(((EditText) findViewById(R.id.serverEditText2)).getText().toString());
             String ipAddr3 = appendZero(((EditText) findViewById(R.id.serverEditText3)).getText().toString());
@@ -78,7 +72,6 @@ public class SettingsActivity extends AppCompatActivity {
 
             SharedPreferences.Editor editor = sharedpreferences.edit();
 
-            editor.putString(Username,user);
             editor.putString(IP1,ipAddr1);
             editor.putString(IP2,ipAddr2);
             editor.putString(IP3,ipAddr3);
