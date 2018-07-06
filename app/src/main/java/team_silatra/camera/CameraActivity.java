@@ -15,6 +15,7 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.NetworkOnMainThreadException;
 import android.speech.tts.TextToSpeech;
+import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
@@ -49,8 +50,10 @@ import java.net.Socket;
 import java.net.SocketException;
 import java.net.UnknownHostException;
 import java.nio.charset.StandardCharsets;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Queue;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -65,7 +68,7 @@ public class CameraActivity extends AppCompatActivity{
     private Camera mCamera;
     private CameraPreview mPreview;
     Button captureButton;
-    TextView txt;
+    TextView txt, rttTextView, imageSizeTextView, fpsTextView;
 
     SharedPreferences sharedpreferences;
     public static final String MyPREFERENCES = "MyPrefs" ;
@@ -95,6 +98,9 @@ public class CameraActivity extends AppCompatActivity{
     public String lastTxt = "";
     TextToSpeech textToSpeech;
 
+    TimeTracker timeTracker = new TimeTracker();
+
+    int countSent = 0, countReceived = 0;
 
 
     @Override
@@ -125,8 +131,13 @@ public class CameraActivity extends AppCompatActivity{
         preview.addView(mPreview);
 
         txt = findViewById(R.id.textview_output);
+        imageSizeTextView = findViewById(R.id.imageSize_TextView);
+        fpsTextView = findViewById(R.id.fps_TextView);
+        rttTextView = findViewById(R.id.RTT_TextView);
 
         isTransmiting = false;
+
+        getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
 
 
         //Initialize TTS
@@ -176,6 +187,7 @@ public class CameraActivity extends AppCompatActivity{
                         //This will fetch port no of new server socket created from python server
                         new establishServerConnection().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
 
+
                     } else{
                         new CloseConnectionAsync().execute();
                         tcpReceive.cancel(true);
@@ -184,6 +196,7 @@ public class CameraActivity extends AppCompatActivity{
                         captureButton.setBackgroundColor(Color.parseColor("#0ba8ef"));
                         captureButton.setText("Capture");
                         captureButton.setEnabled(true);
+                        timeTracker.resetTSQ();
                     }
                 }
             }
@@ -234,6 +247,7 @@ public class CameraActivity extends AppCompatActivity{
             tcpSend.cancel(true);
         }
         //mCamera.release();
+        timeTracker.resetTSQ();
     }
 
 //    @Override
@@ -376,7 +390,7 @@ public class CameraActivity extends AppCompatActivity{
                     try{
                         //Capturing the frame once every five times
                         imgCtr = (imgCtr + 1)%(frameNoThresh);
-                        if((imgCtr) != 0){
+                        if(timeTracker.timestampQueue.size()>4 && (imgCtr) != 0){
                             return;
                         }
 
@@ -393,6 +407,16 @@ public class CameraActivity extends AppCompatActivity{
                         Log.d("SilatraSize of Image",""+imageBytes.length);
                         tcpOutput.write(imageBytes,0,imageBytes.length); //Send image
                         tcpOutput.flush();
+
+
+                        //Record start of RTT measurement
+                        Long tsLong = System.currentTimeMillis();
+                        fpsTextView.setText(timeTracker.addNewStartTimestamp(tsLong)+" fps");
+
+
+                        imageSizeTextView.setText(imageBytes.length+" B");
+                        countSent++;
+
                         Log.d("SilatraTransmission", "Message Sent successfully");
                         Thread.sleep(100);
                     } catch (NetworkOnMainThreadException |IOException | InterruptedException e){
@@ -405,11 +429,6 @@ public class CameraActivity extends AppCompatActivity{
         }
 
 
-
-        @Override
-        protected void onPostExecute(Void aVoid) {
-            Log.d("SilatraOPE","OnPostExecuted");
-        }
     }
 
     private class TCPReceiveText extends AsyncTask<Void,String,Void>{
@@ -465,7 +484,21 @@ public class CameraActivity extends AppCompatActivity{
                 if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP && (!(values[0]+"").equals("--") ) ){
                     textToSpeech.speak(values[0] + "", TextToSpeech.QUEUE_FLUSH, null, null);
                 }
+                lastTxt = values[0]+"";
             }
+
+
+
+            //Record end of RTT measurement
+            Long tsLong = System.currentTimeMillis();
+            Long tsEnd = timeTracker.fetchRTT(tsLong);
+            if(tsEnd!=null){
+                rttTextView.setText("RTT:"+tsEnd+" ms");
+            }
+            Log.d("SilatraQSize",timeTracker.timestampQueue.size()+"");
+
+            countReceived++;
+
         }
 
     }
@@ -477,6 +510,17 @@ public class CameraActivity extends AppCompatActivity{
             try{
                 new DataOutputStream(tcpSocket.getOutputStream()).writeInt(0);
                 Log.d("Silatra","Sent quit indication");
+                Log.d("SilatraQSize",timeTracker.timestampQueue.size()+"");
+                Log.d("Silatra","Sent:"+countSent+", Received:"+countReceived);
+
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        imageSizeTextView.setText("Size: (Bytes)");
+                        fpsTextView.setText("X fps");
+                        rttTextView.setText("RTT: (ms)");
+                    }
+                });
             }catch (IOException e){
                 e.printStackTrace();
             }
@@ -546,6 +590,34 @@ public class CameraActivity extends AppCompatActivity{
         }
     }
 
+}
+
+class TimeTracker{
+    public Queue<Long> timestampQueue = new LinkedList<Long>();
+    public Long lastTS = -1L;
+
+    public String addNewStartTimestamp(Long start){
+        String fps = "X";
+        timestampQueue.add(start);
+        if(lastTS!=-1L){
+            fps =  String.format("%.2f", 1000/(double)(start - lastTS));
+        }
+        lastTS = start;
+        return fps;
+    }
+    
+    
+    synchronized public Long fetchRTT(Long end){
+        Long start = timestampQueue.poll();
+        if(start == null){
+            return null;
+        }
+        return end-start;
+    }
+    
+    synchronized public void resetTSQ(){
+        timestampQueue = new LinkedList<Long>();
+    }
 }
 
 /** A basic Camera preview class */

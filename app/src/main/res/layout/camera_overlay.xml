@@ -19,12 +19,13 @@
     <android.support.design.widget.FloatingActionButton
         android:id="@+id/flashToggle"
         app:backgroundTint="#9aeeeeee"
-        android:layout_margin="10sp"
         android:textSize="16sp"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_below="@+id/textview_output"
         android:layout_alignEnd="@+id/textview_output"
+        android:layout_marginTop="30dp"
+        android:layout_marginRight="10dp"
         app:srcCompat="@mipmap/flash"/>
 
     <Button
@@ -57,5 +58,45 @@
         android:visibility="gone"
         android:translationZ="2dp"
         />
+    <TextView
+        android:id="@+id/imageSize_TextView"
+        android:layout_below="@id/textview_output"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Size: (Bytes)"
+        android:textSize="20sp"
+        android:textColor="#b4006aff"
+        android:shadowColor="#b3ffffff"
+        android:shadowDx="2"
+        android:shadowDy="2"
+        android:shadowRadius="5"/>
+
+    <TextView
+        android:id="@+id/fps_TextView"
+        android:layout_below="@id/textview_output"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="X fps"
+        android:textSize="20sp"
+        android:textColor="#b426ff00"
+        android:shadowColor="#b3ffffff"
+        android:layout_marginLeft="140dp"
+        android:shadowDx="2"
+        android:shadowDy="2"
+        android:shadowRadius="5"/>
+
+    <TextView
+        android:id="@+id/RTT_TextView"
+        android:layout_below="@id/textview_output"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="RTT: (ms)"
+        android:textSize="20sp"
+        android:textColor="#b4ff0004"
+        android:shadowColor="#b3ffffff"
+        android:layout_marginLeft="220dp"
+        android:shadowDx="2"
+        android:shadowDy="2"
+        android:shadowRadius="5"/>
 
 </RelativeLayout>
