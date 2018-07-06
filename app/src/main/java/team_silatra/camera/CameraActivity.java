@@ -154,6 +154,7 @@ public class CameraActivity extends AppCompatActivity{
 
 
         //To prevent "at android.os.StrictMode$AndroidBlockGuardPolicy.onNetwork" exception from getting thrown
+        //Reference: https://stackoverflow.com/a/22395546/5370202
         StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
         StrictMode.setThreadPolicy(policy);
 
