@@ -14,6 +14,7 @@ import android.os.AsyncTask;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.NetworkOnMainThreadException;
+import android.os.StrictMode;
 import android.speech.tts.TextToSpeech;
 import android.support.annotation.NonNull;
 import android.support.design.widget.FloatingActionButton;
@@ -39,6 +40,7 @@ import com.android.volley.VolleyError;
 import com.android.volley.toolbox.StringRequest;
 import com.android.volley.toolbox.Volley;
 
+import java.io.BufferedOutputStream;
 import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
@@ -149,6 +151,13 @@ public class CameraActivity extends AppCompatActivity{
                 }
             }
         });
+
+
+        //To prevent "at android.os.StrictMode$AndroidBlockGuardPolicy.onNetwork" exception from getting thrown
+        //Reference: https://stackoverflow.com/a/22395546/5370202
+        StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
+        StrictMode.setThreadPolicy(policy);
+
 
 
         //Fetch stored preferences of IP address, port number
@@ -358,16 +367,29 @@ public class CameraActivity extends AppCompatActivity{
 
         DataOutputStream tcpOutput;
 
-        int imgCtr = 0;
-        int customFrameRate = 5;
-        int frameNoThresh = 30 / customFrameRate;
+//        int imgCtr = 0;
+//        int customFrameRate = 30;
+//        int frameNoThresh = 30 / customFrameRate;
 
         @Override
         public Void doInBackground(Void ...params){
 
             try {
                 tcpSocket = new Socket(serverAddr,port);
-                tcpOutput = new DataOutputStream(tcpSocket.getOutputStream());
+
+                /**
+                 * Problem being faced was:
+                 *  On Marshmallow-device, the writeInt function was sending 4 bytes, but on Nougat-device,
+                 *  it was sending only 1 byte. (Checked this from Wireshark).
+                 *  Still don't understand the exact problem, but adding BufferedOutputStream,
+                 *  fixed it for reasons mentioned in the reference.
+                 *
+                 * Reference: https://stackoverflow.com/a/39460558/5370202
+                 *
+                 * Old Code: tcpOutput = new DataOutputStream(tcpSocket.getOutputStream());
+                 * New Code: tcpOutput = new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream()));
+                 */
+                tcpOutput = new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream()));
             }catch (UnknownHostException e){
                 Log.e("SilatraWrong IP:", "Error:", e);
             }catch(SocketException e) {
@@ -375,6 +397,7 @@ public class CameraActivity extends AppCompatActivity{
             }catch(IOException e){
                 Log.e("SilatraIOException", "Error:", e);
             }
+
 
             tcpReceive = new TCPReceiveText();
             tcpReceive.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
@@ -389,8 +412,12 @@ public class CameraActivity extends AppCompatActivity{
 
                     try{
                         //Capturing the frame once every five times
-                        imgCtr = (imgCtr + 1)%(frameNoThresh);
-                        if(timeTracker.timestampQueue.size()>4 && (imgCtr) != 0){
+//                        imgCtr = (imgCtr + 1)%(frameNoThresh);
+//                        if(timeTracker.timestampQueue.size()>4 && (imgCtr) != 0){
+//                            return;
+//                        }
+
+                        if(timeTracker.timestampQueue.size()>4){
                             return;
                         }
 
@@ -466,6 +493,7 @@ public class CameraActivity extends AppCompatActivity{
                     }
                     catch (SocketException e) {
                         Log.e("Socket Open:", "Error:", e);
+                        break;
                     }
                 }
             }catch (IOException e){
@@ -508,7 +536,19 @@ public class CameraActivity extends AppCompatActivity{
         @Override
         protected Void doInBackground(Void ...params){
             try{
-                new DataOutputStream(tcpSocket.getOutputStream()).writeInt(0);
+                /**
+                 * Problem being faced was:
+                 *  On Marshmallow-device, the writeInt function was sending 4 bytes, but on Nougat-device,
+                 *  it was sending only 1 byte. (Checked this from Wireshark).
+                 *  Still don't understand the exact problem, but adding BufferedOutputStream,
+                 *  fixed it for reasons mentioned in the reference.
+                 *
+                 * Reference: https://stackoverflow.com/a/39460558/5370202
+                 *
+                 * Old Code: new DataOutputStream(tcpSocket.getOutputStream()).writeInt(0);
+                 * New Code: new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream())).writeInt(0);
+                 */
+                new DataOutputStream(new BufferedOutputStream(tcpSocket.getOutputStream())).writeInt(0);
                 Log.d("Silatra","Sent quit indication");
                 Log.d("SilatraQSize",timeTracker.timestampQueue.size()+"");
                 Log.d("Silatra","Sent:"+countSent+", Received:"+countReceived);
@@ -649,7 +689,7 @@ class CameraPreview extends SurfaceView implements SurfaceHolder.Callback {
             mCamera.setPreviewDisplay(holder);
             mCamera.startPreview();
         } catch (IOException e) {
-            Log.d(TAG, "Error setting camera preview: " + e.getMessage());
+            Log.e(TAG, "Error setting camera preview: " + e.getMessage());
         }
     }
 
@@ -682,7 +722,7 @@ class CameraPreview extends SurfaceView implements SurfaceHolder.Callback {
             mCamera.startPreview();
 
         } catch (Exception e){
-            Log.d(TAG, "Error starting camera preview: " + e.getMessage());
+            Log.e(TAG, "Error starting camera preview: " + e.getMessage());
         }
     }
 

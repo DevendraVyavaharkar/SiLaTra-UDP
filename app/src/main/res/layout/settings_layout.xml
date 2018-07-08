@@ -5,19 +5,7 @@
     android:layout_height="match_parent"
     android:padding="25sp">
 
-    <android.support.v7.widget.AppCompatTextView
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:text="@string/username"
-        android:textSize="20sp"/>
 
-    <android.support.v7.widget.AppCompatEditText
-        android:id="@+id/usernameEditText"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="20dp"
-        android:selectAllOnFocus="true"
-        android:inputType="textVisiblePassword"/>
 
     <android.support.v7.widget.AppCompatTextView
         android:layout_width="wrap_content"
@@ -105,6 +93,7 @@
         android:layout_marginBottom="20dp"
         android:inputType="number"
         android:selectAllOnFocus="true"
+        android:enabled="false"
         android:digits="0123456789"/>
 
     <android.support.v7.widget.AppCompatButton
