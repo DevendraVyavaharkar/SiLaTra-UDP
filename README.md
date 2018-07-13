@@ -3,10 +3,10 @@
 This is the client side of the SiLaTra System. This system is targetted towards the hearing and speech impaired community that use sign language for communicating with each other. But when they communicate with other people outside this community, there is a communication gap. This system is an attempt towards bridging this gap.
 
 Currently, the system supports recognition of:
-* 33 hand poses (whose recognition needs only 1 frame)
+* **33 hand poses (whose recognition needs only 1 frame)**
     * 23 letters (A-Z except H, J. These 2 letters are conveyed through gestures. Hence, wasn't covered. V hand pose is equivalent to 2, hence not counted in letters)
     * 10 digits (0-9)
-* 12 Gestures:
+* **12 Gestures (whose recognition needs a sequence of at least 5 frames):**
     * After
     * All The Best
     * Apple
