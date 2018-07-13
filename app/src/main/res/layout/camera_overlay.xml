@@ -28,14 +28,62 @@
         android:layout_marginRight="10dp"
         app:srcCompat="@mipmap/flash"/>
 
+    <LinearLayout
+        android:id="@+id/modeSelector"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginRight="10sp"
+        android:layout_marginLeft="10sp"
+        android:weightSum="2"
+        android:layout_above="@id/button_capture">
+        <Button
+            android:id="@+id/signModeButton"
+            android:text="SIGN"
+            android:background="#00ffffff"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:textColor="@color/selectedModeBtnFG"
+            android:shadowColor="@color/selectedModeBtnBG"
+            android:shadowDx="1"
+            android:shadowDy="1"
+            android:shadowRadius="15"
+            android:layout_centerHorizontal="true"
+            android:paddingStart="20sp"
+            android:paddingEnd="20sp"
+            android:onClick="switchRecognitionMode"/>
+        <Button
+            android:id="@+id/gestureModeButton"
+            android:text="GESTURE"
+            android:background="#00ffffff"
+            android:layout_width="0dp"
+            android:layout_weight="1"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:textColor="@color/normalModeBtnFG"
+            android:shadowColor="@color/normalModeBtnBG"
+            android:shadowDx="1"
+            android:shadowDy="1"
+            android:shadowRadius="5"
+            android:layout_centerHorizontal="true"
+            android:paddingStart="20sp"
+            android:paddingEnd="20sp"
+            android:onClick="switchRecognitionMode"/>
+    </LinearLayout>
+
+
     <Button
         android:id="@+id/button_capture"
         android:text="@string/capture"
         android:textSize="16sp"
-        android:background="#0ba8ef"
+        android:background="#d50ba8ef"
         android:layout_width="match_parent"
         android:layout_height="50dp"
-        android:layout_margin="10sp"
+        android:layout_marginTop="0sp"
+        android:layout_marginRight="10sp"
+        android:layout_marginLeft="10sp"
+        android:layout_marginBottom="10sp"
         android:layout_gravity="center"
         android:layout_alignParentBottom="true"
         android:layout_centerHorizontal="true"

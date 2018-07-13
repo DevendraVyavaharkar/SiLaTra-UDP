@@ -8,4 +8,8 @@
     <color name="colorPrimary">#424242</color>
     <color name="colorPrimaryDark">#222222</color>
     <color name="colorAccent">#0ba8ef</color>
+    <color name="selectedModeBtnFG">#d9dff4ff</color>
+    <color name="selectedModeBtnBG">#ab000000</color>
+    <color name="normalModeBtnFG">#98c4c4c4</color>
+    <color name="normalModeBtnBG">#a8181818</color>
 </resources>

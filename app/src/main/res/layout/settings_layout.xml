@@ -79,6 +79,18 @@
             android:digits="0123456789" />
 
     </LinearLayout>
+    
+    <CheckBox
+        android:id="@+id/directConnCheckBox"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Direct Connection"
+        android:onClick="onCheckboxClicked"/>
+    <TextView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="13sp"
+        android:text="Note: Use direct connection only if you are a developer and know how to use it."/>
 
     <android.support.v7.widget.AppCompatTextView
         android:layout_width="wrap_content"
@@ -103,6 +115,18 @@
         android:layout_gravity="center"
         android:text="@string/applyChanges"
         android:background="#0ba8ef"
+        android:layout_marginTop="40dp"/>
+
+
+    <android.support.v7.widget.AppCompatButton
+        android:id="@+id/resetBtn"
+        android:paddingRight="10dp"
+        android:paddingLeft="10dp"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="center"
+        android:text="Reset"
+        android:background="#aff0ff"
         android:layout_marginTop="40dp"/>
 
 </LinearLayout>
