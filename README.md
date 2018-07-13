@@ -38,9 +38,7 @@ You can switch on or off your Flash using the button provided.
 
 ## Screenshots
 
-<img src="/Screenshots/HandPose_2.jpg" width="220px"/> <img src="/Screenshots/HandPose_a.jpg" width="220px"/> <img src="/Screenshots/HandPose_g.jpg" width="220px"/>
-
-<img src="/Screenshots/HandPose_n.jpg" width="220px"/> <img src="/Screenshots/Gesture_Good Morning.jpg" width="220px"/> 
+<img src="/Screenshots/Gesture_Good Morning.jpg" width="220px"/> 
 
 ## Demo Videos
 
