@@ -9,6 +9,7 @@ import android.graphics.ImageFormat;
 import android.graphics.Rect;
 import android.graphics.YuvImage;
 import android.hardware.Camera;
+import android.media.AudioManager;
 import android.net.wifi.WifiManager;
 import android.os.AsyncTask;
 import android.os.Build;
@@ -29,6 +30,7 @@ import android.view.Window;
 import android.view.WindowManager;
 import android.widget.Button;
 import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 import android.view.ViewGroup.LayoutParams;
@@ -69,8 +71,8 @@ public class CameraActivity extends AppCompatActivity{
 
     private Camera mCamera;
     private CameraPreview mPreview;
-    Button captureButton;
-    TextView txt, rttTextView, imageSizeTextView, fpsTextView;
+    Button captureButton,signModeButton,gestureModeButton;
+    TextView OPTextView, rttTextView, imageSizeTextView, fpsTextView;
 
     SharedPreferences sharedpreferences;
     public static final String MyPREFERENCES = "MyPrefs" ;
@@ -79,10 +81,12 @@ public class CameraActivity extends AppCompatActivity{
     public static final String IP3 = "ip3Key";
     public static final String IP4 = "ip4Key";
     public static final String Port = "portKey";
+    public static final String DirectConnection = "directConnectionKey";
 
 
     InetAddress serverAddr;
     int port;
+    boolean directConnectionEnabled;
     Socket tcpSocket;
     String serverUrl;
 
@@ -90,6 +94,7 @@ public class CameraActivity extends AppCompatActivity{
     private boolean hasFlash;
     private boolean isFlashOn;
     private boolean isTransmiting;
+    private boolean connectionStateChanging = false;
 
 
     public TCPReceiveText tcpReceive;
@@ -103,6 +108,8 @@ public class CameraActivity extends AppCompatActivity{
     TimeTracker timeTracker = new TimeTracker();
 
     int countSent = 0, countReceived = 0;
+
+    public String recognitionMode = "SIGN";
 
 
     @Override
@@ -132,10 +139,12 @@ public class CameraActivity extends AppCompatActivity{
         FrameLayout preview = findViewById(R.id.camera_preview);
         preview.addView(mPreview);
 
-        txt = findViewById(R.id.textview_output);
+        OPTextView = findViewById(R.id.textview_output);
         imageSizeTextView = findViewById(R.id.imageSize_TextView);
         fpsTextView = findViewById(R.id.fps_TextView);
         rttTextView = findViewById(R.id.RTT_TextView);
+        signModeButton = findViewById(R.id.signModeButton);
+        gestureModeButton = findViewById(R.id.gestureModeButton);
 
         isTransmiting = false;
 
@@ -153,6 +162,11 @@ public class CameraActivity extends AppCompatActivity{
         });
 
 
+        // Change Media volume instead of ringtone volume when hardware buttons are clicked
+        // Reference: https://stackoverflow.com/a/13304713/5370202
+        setVolumeControlStream(AudioManager.STREAM_MUSIC);
+
+
         //To prevent "at android.os.StrictMode$AndroidBlockGuardPolicy.onNetwork" exception from getting thrown
         //Reference: https://stackoverflow.com/a/22395546/5370202
         StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
@@ -167,17 +181,21 @@ public class CameraActivity extends AppCompatActivity{
                     sharedpreferences.getString(IP2,null)+"."+
                     sharedpreferences.getString(IP3,null)+"."+
                     sharedpreferences.getString(IP4,null));
-//            port = sharedpreferences.getInt(Port,0);
+            port = sharedpreferences.getInt(Port,0);
+            directConnectionEnabled = sharedpreferences.getBoolean(DirectConnection, false);
 
         } catch (UnknownHostException e) {
             Log.e("SilatraException","Message:"+e.toString());
         }
 
 
+        updateViewBasedOnPreferences();
+
+
 
         // Instantiate the RequestQueue for http requests.
         queue = Volley.newRequestQueue(this);
-        serverUrl ="http:/"+serverAddr+":5000/get-port-number/";  //serverAddr returns as '/192.168.2.5', hence, string has 'http:/'
+        serverUrl ="http:/"+serverAddr+":5000/get-port-number?recognitionMode=";  //serverAddr returns as '/192.168.2.5', hence, string has 'http:/'
 
 
 
@@ -189,6 +207,7 @@ public class CameraActivity extends AppCompatActivity{
                 public void onClick(View v) {
                     captureButton.setEnabled(false);
                     if(!isTransmiting) {
+                        connectionStateChanging = true;
                         findViewById(R.id.loaderGif).setVisibility(View.VISIBLE);
                         findViewById(R.id.loaderBg).setVisibility(View.VISIBLE);
                         Toast.makeText(getApplicationContext(),"Establishing connection with server...",Toast.LENGTH_SHORT).show();
@@ -198,6 +217,7 @@ public class CameraActivity extends AppCompatActivity{
 
 
                     } else{
+                        connectionStateChanging = true;
                         new CloseConnectionAsync().execute();
                         tcpReceive.cancel(true);
                         tcpSend.cancel(true);
@@ -207,6 +227,7 @@ public class CameraActivity extends AppCompatActivity{
                         captureButton.setEnabled(true);
                         timeTracker.resetTSQ();
                     }
+                    changeRecognitionModePanel();
                 }
             }
         );
@@ -242,6 +263,65 @@ public class CameraActivity extends AppCompatActivity{
     }
 
     @Override
+    public void onBackPressed() {
+        //Reference: https://stackoverflow.com/a/31596288/5370202
+        if(connectionStateChanging){
+            Toast.makeText(getApplicationContext(),"Wait for connection state to change",Toast.LENGTH_SHORT).show();
+        }
+        else{
+            super.onBackPressed();
+        }
+    }
+
+    public void updateViewBasedOnPreferences(){
+        if(directConnectionEnabled){
+            findViewById(R.id.modeSelector).setVisibility(View.GONE);
+        }
+    }
+
+    public void changeRecognitionModePanel(){
+        if(isTransmiting){
+//            ((LinearLayout)findViewById(R.id.modeSelector)).setWeightSum(1);
+            if(recognitionMode.equals("SIGN"))
+                gestureModeButton.setVisibility(View.GONE);
+            else
+                signModeButton.setVisibility(View.GONE);
+
+            signModeButton.setEnabled(false);
+            gestureModeButton.setEnabled(false);
+        }
+        else{
+//            ((LinearLayout)findViewById(R.id.modeSelector)).setWeightSum(2);
+            gestureModeButton.setVisibility(View.VISIBLE);
+            signModeButton.setVisibility(View.VISIBLE);
+
+            signModeButton.setEnabled(true);
+            gestureModeButton.setEnabled(true);
+        }
+    }
+
+    public void switchRecognitionMode(View view){
+
+        // Check which button was clicked
+        switch(view.getId()) {
+            case R.id.signModeButton:
+                recognitionMode = "SIGN";
+                signModeButton.setTextColor(getResources().getColor(R.color.selectedModeBtnFG));
+                signModeButton.setShadowLayer(15,1,1,getResources().getColor(R.color.selectedModeBtnBG));
+                gestureModeButton.setTextColor(getResources().getColor(R.color.normalModeBtnFG));
+                gestureModeButton.setShadowLayer(5,1,1,getResources().getColor(R.color.normalModeBtnBG));
+                break;
+            case R.id.gestureModeButton:
+                recognitionMode = "GESTURE";
+                signModeButton.setTextColor(getResources().getColor(R.color.normalModeBtnFG));
+                signModeButton.setShadowLayer(5,1,1,getResources().getColor(R.color.normalModeBtnBG));
+                gestureModeButton.setTextColor(getResources().getColor(R.color.selectedModeBtnFG));
+                gestureModeButton.setShadowLayer(15,1,1,getResources().getColor(R.color.selectedModeBtnBG));
+                break;
+        }
+    }
+
+    @Override
     protected void onStop() {
         super.onStop();
 
@@ -252,88 +332,12 @@ public class CameraActivity extends AppCompatActivity{
 
         if(isTransmiting) {
             new CloseConnectionAsync().execute();
-            tcpReceive.cancel(true);
-            tcpSend.cancel(true);
         }
         //mCamera.release();
         timeTracker.resetTSQ();
     }
 
-//    @Override
-//    protected void onResume(){
-//        super.onResume();
-//
-//
-//        if(mCamera ==null)
-//        {
-//            setContentView(R.layout.camera_activity);
-//
-//            // Create an instance of Camera
-//            mCamera = getCameraInstance();
-//            // Create our Preview view and set it as the content of our activity.
-//            mPreview = new CameraPreview(this, mCamera);
-//            FrameLayout preview = findViewById(R.id.camera_preview);
-//            preview.addView(mPreview);
-//
-//            //LayoutInflater is used. The camera_overlay.xml layout is used over the Camera Preview layout
-//            LayoutInflater inflater = LayoutInflater.from(this);
-//            View theInflatedView = inflater.inflate(R.layout.camera_overlay, null);
-//            LayoutParams layoutParamsControl = new LayoutParams(LayoutParams.FILL_PARENT,LayoutParams.FILL_PARENT);
-//            this.addContentView(theInflatedView, layoutParamsControl);
-//
-//            // Add a listener to the Capture button
-//            Button captureButton = (Button) theInflatedView.findViewById(R.id.button_capture);
-//            captureButton.setOnClickListener(
-//                    new View.OnClickListener() {
-//                        @Override
-//                        public void onClick(View v) {
-//                            new TCPReceiveText().execute();
-//                            new TCPSendPicture().executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
-//                        }
-//                    }
-//            );
-//
-//            // Flash Toggle Button
-//            Button toggleFlash = theInflatedView.findViewById(R.id.flashToggle);
-//            toggleFlash.setOnClickListener(new View.OnClickListener() {
-//                @Override
-//                public void onClick(View view) {
-//                    if(!hasFlash){
-//                        Toast.makeText(getApplicationContext(),"Your device doesn't have Flashlight!",Toast.LENGTH_LONG).show();
-//                    }
-//                    else if(isFlashOn){
-//                        Camera.Parameters params = mCamera.getParameters();
-//                        params.setFlashMode(Camera.Parameters.FLASH_MODE_OFF);
-//                        mCamera.setParameters(params);
-//                        mCamera.startPreview();
-//                        isFlashOn = false;
-//                    }
-//                    else{
-//                        Camera.Parameters params = mCamera.getParameters();
-//                        params.setFlashMode(Camera.Parameters.FLASH_MODE_TORCH);
-//                        mCamera.setParameters(params);
-//                        mCamera.startPreview();
-//                        isFlashOn = true;
-//                    }
-//                }
-//            });
-//        }
-//    }
-//
-//    @Override
-//    protected void onPause(){
-//        super.onPause();
-//        if(tcpSend!=null && !tcpSend.isCancelled())
-//            tcpSend.cancel(true);
-//        if(tcpReceive!=null && !tcpReceive.isCancelled())
-//            tcpReceive.cancel(true);
-//        if(mCamera!=null) {
-//            mCamera.stopPreview();
-//            mCamera.setPreviewCallback(null);
-//            mCamera.release();
-//            mCamera = null;
-//        }
-//    }
+
 
     /** A safe way to get an instance of the Camera object. */
     public static Camera getCameraInstance(){
@@ -508,7 +512,7 @@ public class CameraActivity extends AppCompatActivity{
 
             Log.d("Silatra",values[0]);
             if(!lastTxt.equals(values[0]+"")){
-                txt.setText(values[0]+"");
+                OPTextView.setText(values[0]+"");
                 if (android.os.Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP && (!(values[0]+"").equals("--") ) ){
                     textToSpeech.speak(values[0] + "", TextToSpeech.QUEUE_FLUSH, null, null);
                 }
@@ -536,6 +540,13 @@ public class CameraActivity extends AppCompatActivity{
         @Override
         protected Void doInBackground(Void ...params){
             try{
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        findViewById(R.id.loaderGif).setVisibility(View.VISIBLE);
+                        findViewById(R.id.loaderBg).setVisibility(View.VISIBLE);
+                    }
+                });
                 /**
                  * Problem being faced was:
                  *  On Marshmallow-device, the writeInt function was sending 4 bytes, but on Nougat-device,
@@ -553,79 +564,128 @@ public class CameraActivity extends AppCompatActivity{
                 Log.d("SilatraQSize",timeTracker.timestampQueue.size()+"");
                 Log.d("Silatra","Sent:"+countSent+", Received:"+countReceived);
 
-                runOnUiThread(new Runnable() {
-                    @Override
-                    public void run() {
-                        imageSizeTextView.setText("Size: (Bytes)");
-                        fpsTextView.setText("X fps");
-                        rttTextView.setText("RTT: (ms)");
-                    }
-                });
             }catch (IOException e){
                 e.printStackTrace();
             }
             return null;
+        }
+
+        @Override
+        protected void onPostExecute(Void aVoid) {
+            new Timer().schedule(new TimerTask(){
+
+                @Override
+                public void run() {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            imageSizeTextView.setText("Size: (Bytes)");
+                            fpsTextView.setText("X fps");
+                            rttTextView.setText("RTT: (ms)");
+                            OPTextView.setText("--");
+                            findViewById(R.id.loaderGif).setVisibility(View.GONE);
+                            findViewById(R.id.loaderBg).setVisibility(View.GONE);
+                        }
+                    });
+
+                    tcpReceive.cancel(true);
+                    tcpSend.cancel(true);
+                    connectionStateChanging = false;
+
+                }
+            },1000);
+
         }
     }
 
     private class establishServerConnection extends AsyncTask<Void,String,Void>{
         @Override
         protected Void doInBackground(Void ...params){
-            // Request a string response from the provided URL.
-            final StringRequest stringRequest = new StringRequest(Request.Method.GET, serverUrl,
-                    new Response.Listener<String>() {
-                        @Override
-                        public void onResponse(String response) {
-                            Log.d("Silatra","Server response is: "+response);
-                            port = Integer.parseInt(response);
 
-                            //Reference: http://envyandroid.com/android-delayed-tasks/
-                            //This delay is added so as to compensate for the time required by the server to actually start the server socket
-                            new Timer().schedule(new TimerTask() {
-                                @Override
-                                public void run() {
-                                    runOnUiThread(new Runnable() {
-                                        @Override
-                                        public void run() {
-                                            tcpSend = new TCPSendPicture();
-                                            tcpSend.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+            if(directConnectionEnabled){  // This branch will be executed if direct Connection has been enabled by app user
 
-                                            //Change local properties to indicate start of transmission
-                                            isTransmiting=true;
-                                            captureButton.setBackgroundColor(Color.RED);
-                                            captureButton.setText("Stop");
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        tcpSend = new TCPSendPicture();
+                        tcpSend.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
 
-                                            findViewById(R.id.loaderGif).setVisibility(View.GONE);
-                                            findViewById(R.id.loaderBg).setVisibility(View.GONE);
-                                            captureButton.setEnabled(true);
+                        //Change local properties to indicate start of transmission
+                        isTransmiting=true;
+                        captureButton.setBackgroundColor(Color.RED);
+                        captureButton.setText("Stop");
 
-                                            Toast.makeText(getApplicationContext(),"Connection established with server",Toast.LENGTH_LONG).show();
+                        findViewById(R.id.loaderGif).setVisibility(View.GONE);
+                        findViewById(R.id.loaderBg).setVisibility(View.GONE);
+                        captureButton.setEnabled(true);
 
-                                        }
-                                    });
+                        Toast.makeText(getApplicationContext(),"Connection established with server",Toast.LENGTH_SHORT).show();
+                        connectionStateChanging = false;
+                    }
+                });
 
-                                }
-                            },5000);
-                        }
-                    }, new Response.ErrorListener() {
-                @Override
-                public void onErrorResponse(final VolleyError error) {
-                    runOnUiThread(new Runnable() {
-                        @Override
-                        public void run() {
-                            findViewById(R.id.loaderGif).setVisibility(View.GONE);
-                            findViewById(R.id.loaderBg).setVisibility(View.GONE);
-                            captureButton.setEnabled(true);
-                            Log.d("Silatra",error.networkResponse+"");
 
-                            Toast.makeText(getApplicationContext(),"Unreachable Server!",Toast.LENGTH_LONG).show();
-                        }
-                    });
+            }
+            else{  // This branch will be executed if direct Connection has not been enabled by app user
+                // Request a string response from the provided URL.
+                final StringRequest stringRequest = new StringRequest(Request.Method.GET, serverUrl+recognitionMode,
+                        new Response.Listener<String>() {
+                            @Override
+                            public void onResponse(String response) {
+                                Log.d("Silatra","Server response is: "+response);
+                                port = Integer.parseInt(response);
 
-                }
-            });
-            // Add the request to the RequestQueue.
-            queue.add(stringRequest);
+                                //Reference: http://envyandroid.com/android-delayed-tasks/
+                                //This delay is added so as to compensate for the time required by the server to actually start the server socket
+                                new Timer().schedule(new TimerTask() {
+                                    @Override
+                                    public void run() {
+                                        runOnUiThread(new Runnable() {
+                                            @Override
+                                            public void run() {
+                                                tcpSend = new TCPSendPicture();
+                                                tcpSend.executeOnExecutor(AsyncTask.THREAD_POOL_EXECUTOR);
+
+                                                //Change local properties to indicate start of transmission
+                                                isTransmiting=true;
+                                                captureButton.setBackgroundColor(Color.RED);
+                                                captureButton.setText("Stop");
+
+                                                findViewById(R.id.loaderGif).setVisibility(View.GONE);
+                                                findViewById(R.id.loaderBg).setVisibility(View.GONE);
+                                                captureButton.setEnabled(true);
+
+                                                Toast.makeText(getApplicationContext(),"Connection established with server",Toast.LENGTH_LONG).show();
+
+                                                connectionStateChanging = false;
+
+                                            }
+                                        });
+
+                                    }
+                                },5000);
+                            }
+                        }, new Response.ErrorListener() {
+                    @Override
+                    public void onErrorResponse(final VolleyError error) {
+                        runOnUiThread(new Runnable() {
+                            @Override
+                            public void run() {
+                                findViewById(R.id.loaderGif).setVisibility(View.GONE);
+                                findViewById(R.id.loaderBg).setVisibility(View.GONE);
+                                captureButton.setEnabled(true);
+                                Log.d("Silatra",error.networkResponse+"");
+
+                                Toast.makeText(getApplicationContext(),"Unreachable Server!",Toast.LENGTH_LONG).show();
+                            }
+                        });
+
+                    }
+                });
+                // Add the request to the RequestQueue.
+                queue.add(stringRequest);
+            }
+
             return null;
         }
     }
