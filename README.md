@@ -47,3 +47,5 @@ The Demo Videos of this application can be found here:
 * [Video: Android Application GESTURE Recognition Mode](https://drive.google.com/file/d/1YH6i5OYm3zrSTE-fvWF-zeas9-wiPObo/preview)
 
 * [Video: Android Application SIGN Recognition Mode](https://drive.google.com/file/d/1nrDSmnbonpNWM9grgfg7baCJIL-cQAWX/preview)
+
+* [Video: Deprecated Android Application Client Server Screen Recording GESTURE Recognition Mode](https://drive.google.com/file/d/1KgJbSvABfCukhtKDfdMRi8h6vzNzIKTq/preview)
