@@ -38,14 +38,14 @@ You can switch on or off your Flash using the button provided.
 
 ## Screenshots
 
-<img src="/Screenshots/HandPose_2.jpg" width="100px"/>
+<img src="/Screenshots/HandPose_2.jpg" width="220px"/> <img src="/Screenshots/HandPose_a.jpg" width="220px"/> <img src="/Screenshots/HandPose_g.jpg" width="220px"/>
+
+<img src="/Screenshots/HandPose_n.jpg" width="220px"/> <img src="/Screenshots/Gesture_Good Morning.jpg" width="220px"/> 
 
 ## Demo Videos
 
 The Demo Videos of this application can be found here:
 
-**Android Application GESTURE Recognition Mode**
-<iframe src="https://drive.google.com/file/d/1YH6i5OYm3zrSTE-fvWF-zeas9-wiPObo/preview" width="640" height="480"></iframe>
+* [Video: Android Application GESTURE Recognition Mode](https://drive.google.com/file/d/1YH6i5OYm3zrSTE-fvWF-zeas9-wiPObo/preview)
 
-**Android Application SIGN Recognition Mode**
-<iframe src="https://drive.google.com/file/d/1nrDSmnbonpNWM9grgfg7baCJIL-cQAWX/preview" width="640" height="480"></iframe>
+* [Video: Android Application SIGN Recognition Mode](https://drive.google.com/file/d/1nrDSmnbonpNWM9grgfg7baCJIL-cQAWX/preview)
