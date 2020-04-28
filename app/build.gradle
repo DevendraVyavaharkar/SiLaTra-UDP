@@ -1,13 +1,13 @@
 apply plugin: 'com.android.application'
 
 android {
-    compileSdkVersion 26
+    compileSdkVersion 28
     defaultConfig {
         applicationId "team_silatra.camera"
         minSdkVersion 19
         targetSdkVersion 28
         versionCode 1
-        versionName '3.0'
+        versionName '4.0'
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
     }
     buildTypes {

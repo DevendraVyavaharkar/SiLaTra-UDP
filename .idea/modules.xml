@@ -2,8 +2,8 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/SiLaTra-UDP.iml" filepath="$PROJECT_DIR$/SiLaTra-UDP.iml" />
-      <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/SiLaTra-UDP.iml" filepath="$PROJECT_DIR$/SiLaTra-UDP.iml" group="SiLaTra-UDP" />
+      <module fileurl="file://$PROJECT_DIR$/app/app.iml" filepath="$PROJECT_DIR$/app/app.iml" group="SiLaTra-UDP/app" />
     </modules>
   </component>
 </project>

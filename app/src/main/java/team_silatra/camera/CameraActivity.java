@@ -674,7 +674,7 @@ public class CameraActivity extends AppCompatActivity{
                                 findViewById(R.id.loaderGif).setVisibility(View.GONE);
                                 findViewById(R.id.loaderBg).setVisibility(View.GONE);
                                 captureButton.setEnabled(true);
-                                Log.d("Silatra",error.networkResponse+"");
+                                Log.d("Silatra",error+"");
 
                                 Toast.makeText(getApplicationContext(),"Unreachable Server!",Toast.LENGTH_LONG).show();
                             }
