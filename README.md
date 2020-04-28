@@ -24,6 +24,10 @@ Currently, the system supports recognition of:
 
 The server-side of the system can be found here: [Sign Language Translator (SiLaTra) Server-Side](https://github.com/kartik2112/Silatra)
 
+## App Download
+
+You can try out this app for yourself by downloading it from [here](https://github.com/DevendraVyavaharkar/SiLaTra-UDP/releases/download/6.0/Silatra_28_April_2020.apk). This application is working as of April 28, 2020. Let us know in case of any issues.
+
 ## Usage
 
 * Provide the required permissions
